@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard-header">
+            <h1>Dashboard</h1>
+            <button onclick="logout()">Déconnexion</button>
+        </div>
+        
+        <div id="dashboard-content">
+            <!-- Content loads here based on user type -->
+        </div>
+    </div>
+    <script>
+        const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+        if (!currentUser) {
+            window.location.href = 'index.html';
+        }
+        
+        // Simple database
+        const DB = {
+            exams: JSON.parse(localStorage.getItem('exams') || '[]'),
+            questions: JSON.parse(localStorage.getItem('questions') || '[]'),
+            save() {
+                localStorage.setItem('exams', JSON.stringify(this.exams));
+                localStorage.setItem('questions', JSON.stringify(this.questions));
+            }
+        };
+        
+        // Load dashboard based on user type
+        if (currentUser.userType === 'teacher') {
+            loadTeacherDashboard();
+        } else {
+            loadStudentDashboard();
+        }
+        
+        function loadTeacherDashboard() {
+            document.getElementById('dashboard-content').innerHTML = `
+                <h2>Créer un Examen</h2>
+                <form id="create-exam">
+                    <input type="text" name="titre" placeholder="Titre de l'examen" required>
+                    <textarea name="description" placeholder="Description"></textarea>
+                    <input type="text" name="publicCible" placeholder="Public ciblé (ex: 2e année MIP)">
+                    <button type="submit">Créer l'examen</button>
+                </form>
+                
+                <div id="exam-list">
+                    <h2>Mes Examens</h2>
+                    ${DB.exams.map(exam => `
+                        <div class="exam-item">
+                            <h3>${exam.titre}</h3>
+                            <div class="exam-link">
+                                Lien: <a href="exam.html?id=${exam.id}" target="_blank">exam.html?id=${exam.id}</a>
+                            </div>
+                            <button onclick="addQuestion(${exam.id})">Ajouter des questions</button>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div id="question-form" style="display:none;"></div>
+            `;
+            
+            document.getElementById('create-exam').addEventListener('submit', createExam);
+        }
+        
+        function createExam(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const exam = {
+                id: Date.now(),
+                title: formData.get('titre'),
+                description: formData.get('description'),
+                publicCible: formData.get('publicCible'),
+                created_by: currentUser.id,
+                questions: []
+            };
+            
+            DB.exams.push(exam);
+            DB.save();
+            
+            // Reload dashboard
+            loadTeacherDashboard();
+        }
+        
+        function addQuestion(examId) {
+            document.getElementById('question-form').style.display = 'block';
+            document.getElementById('question-form').innerHTML = `
+                <h2>Ajouter une Question</h2>
+                <form id="add-question">
+                    <input type="hidden" name="examId" value="${examId}">
+                    <select name="type" required>
+                        <option value="direct">Question Directe</option>
+                        <option value="mcq">QCM</option>
+                    </select>
+                    <textarea name="text" placeholder="Énoncé de la question" required></textarea>
+                    <input type="number" name="points" placeholder="Points" required>
+                    <input type="number" name="time" placeholder="Durée (secondes)" required>
+                    <div id="answer-section">
+                        <input type="text" name="answer" placeholder="Réponse" required>
+                        <input type="number" name="tolerance" placeholder="Tolérance (%)" value="10">
+                    </div>
+                    <button type="submit">Ajouter la question</button>
+                </form>
+            `;
+            
+            document.querySelector('select[name="type"]').addEventListener('change', function() {
+                if (this.value === 'mcq') {
+                    document.getElementById('answer-section').innerHTML = `
+                        <div id="mcq-options">
+                            <button type="button" onclick="addOption()">Ajouter une option</button>
+                        </div>
+                    `;
+                }
+            });
+            
+            document.getElementById('add-question').addEventListener('submit', saveQuestion);
+        }
+        
+        function saveQuestion(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const question = {
+                id: Date.now(),
+                examId: parseInt(formData.get('examId')),
+                type: formData.get('type'),
+                text: formData.get('text'),
+                points: parseInt(formData.get('points')),
+                time: parseInt(formData.get('time')),
+                answer: formData.get('answer'),
+                tolerance: formData.get('tolerance')
+            };
+            
+            DB.questions.push(question);
+            DB.save();
+            
+            // Update exam questions
+            const examIndex = DB.exams.findIndex(e => e.id == question.examId);
+            if (examIndex >= 0) {
+                DB.exams[examIndex].questions.push(question.id);
+                DB.save();
+            }
+            
+            alert('Question ajoutée!');
+            document.getElementById('question-form').style.display = 'none';
+        }
+        
+        function loadStudentDashboard() {
+            document.getElementById('dashboard-content').innerHTML = `
+                <h2>Examens Disponibles</h2>
+                <div>Entrez le lien d'examen partagé par votre enseignant</div>
+                <input type="url" id="exam-link" placeholder="Entrez le lien d'examen">
+                <button onclick="joinExam()">Rejoindre l'examen</button>
+            `;
+        }
+        
+        function joinExam() {
+            const link = document.getElementById('exam-link').value;
+            if (link) {
+                window.location.href = link;
+            }
+        }
+        
+        function logout() {
+            sessionStorage.removeItem('currentUser');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

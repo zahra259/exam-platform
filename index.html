@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plateforme d'Examen</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div id="app">
+            <!-- Registration Form -->
+            <div id="registration-form">
+                <h1>Inscription</h1>
+                <form id="registration">
+                    <input type="email" name="email" placeholder="Email" required>
+                    <input type="password" name="password" placeholder="Mot de passe" required>
+                    <input type="text" name="nom" placeholder="Nom" required>
+                    <input type="text" name="prenom" placeholder="Prénom" required>
+                    <input type="date" name="dateNaissance" required>
+                    <select name="sexe" required>
+                        <option value="">Sexe</option>
+                        <option value="M">Masculin</option>
+                        <option value="F">Féminin</option>
+                    </select>
+                    <input type="text" name="etablissement" placeholder="Établissement" required>
+                    <input type="text" name="filiere" placeholder="Filière" required>
+                    <select name="userType" required>
+                        <option value="">Type d'utilisateur</option>
+                        <option value="student">Étudiant</option>
+                        <option value="teacher">Enseignant</option>
+                    </select>
+                    <button type="submit">S'inscrire</button>
+                </form>
+                <button id="show-login">Déjà inscrit?</button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="login-form" style="display:none;">
+                <h1>Connexion</h1>
+                <form id="login">
+                    <input type="email" name="email" placeholder="Email" required>
+                    <input type="password" name="password" placeholder="Mot de passe" required>
+                    <button type="submit">Se connecter</button>
+                </form>
+                <button id="show-register">Créer un compte</button>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

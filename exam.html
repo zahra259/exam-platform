@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Examen</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div id="exam-container">
+            <div id="exam-info"></div>
+            <div id="timer"></div>
+            <div id="question-container"></div>
+        </div>
+    </div>
+    <script>
+        // Initialize variables
+        var examId = null;
+        var exam = null;
+        var questions = [];
+        var currentQuestionIndex = 0;
+        var score = 0;
+        var timer = null;
+        var examLocation = null;
+        var currentUser = null;
+        
+        // Get exam ID from URL
+        try {
+            var urlParams = new URLSearchParams(window.location.search);
+            examId = urlParams.get('id');
+            
+            if (!examId) {
+                alert('ID d\'examen manquant');
+                window.location.href = 'dashboard.html';
+            }
+        } catch (e) {
+            console.error('Error getting exam ID:', e);
+            window.location.href = 'dashboard.html';
+        }
+        
+        // Load data
+        try {
+            currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+            if (!currentUser) {
+                alert('Vous devez être connecté');
+                window.location.href = 'index.html';
+            }
+        } catch (e) {
+            console.error('Error loading user:', e);
+            window.location.href = 'index.html';
+        }
+        
+        // Load exam data
+        try {
+            var exams = JSON.parse(localStorage.getItem('exams') || '[]');
+            var allQuestions = JSON.parse(localStorage.getItem('questions') || '[]');
+            
+            exam = exams.find(function(e) { return e.id == examId; });
+            if (!exam) {
+                alert('Examen non trouvé');
+                window.location.href = 'dashboard.html';
+            }
+            
+            questions = allQuestions.filter(function(q) { return q.examId == examId; });
+            
+            if (questions.length === 0) {
+                alert('Aucune question dans cet examen');
+                window.location.href = 'dashboard.html';
+            }
+        } catch (e) {
+            console.error('Error loading exam data:', e);
+        }
+        
+        // Get geolocation
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                examLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                startExam();
+            }, function(error) {
+                console.log('Geolocation error:', error);
+                startExam();
+            });
+        } else {
+            startExam();
+        }
+        
+        function startExam() {
+            if (!exam) return;
+            
+            document.getElementById('exam-info').innerHTML = 
+                '<h1>' + (exam.title || exam.titre || 'Examen') + '</h1>' +
+                '<p>' + (exam.description || '') + '</p>' +
+                '<p>Public ciblé: ' + (exam.publicCible || '') + '</p>';
+            
+            showQuestion(0);
+        }
+        
+        function showQuestion(index) {
+            if (index >= questions.length) {
+                endExam();
+                return;
+            }
+            
+            currentQuestionIndex = index;
+            var question = questions[index];
+            
+            // Clear previous timer
+            if (timer) {
+                clearInterval(timer);
+            }
+            
+            // Show question
+            var questionHtml = '<div class="question">' +
+                '<h2>Question ' + (index + 1) + '</h2>' +
+                '<p>' + question.text + '</p>' +
+                '<input type="text" id="answer" placeholder="Votre réponse">' +
+                '<button onclick="submitAnswer()">Répondre</button>' +
+                '</div>';
+            
+            document.getElementById('question-container').innerHTML = questionHtml;
+            
+            // Start timer
+            var timeLeft = question.time || 60;
+            updateTimerDisplay(timeLeft);
+            
+            timer = setInterval(function() {
+                timeLeft--;
+                updateTimerDisplay(timeLeft);
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    submitAnswer();
+                }
+            }, 1000);
+        }
+        
+        function submitAnswer() {
+            if (timer) {
+                clearInterval(timer);
+            }
+            
+            var question = questions[currentQuestionIndex];
+            var answerElement = document.getElementById('answer');
+            var userAnswer = answerElement ? answerElement.value : '';
+            
+            // Check answer
+            if (checkAnswer(userAnswer, question)) {
+                score += (question.points || 0);
+            }
+            
+            // Next question
+            showQuestion(currentQuestionIndex + 1);
+        }
+        
+        function checkAnswer(userAnswer, question) {
+            if (!userAnswer || !question || !question.answer) {
+                return false;
+            }
+            
+            var correct = question.answer.toString().toLowerCase().trim();
+            var answer = userAnswer.toString().toLowerCase().trim();
+            
+            return correct === answer;
+        }
+        
+        function endExam() {
+            var totalPoints = 0;
+            for (var i = 0; i < questions.length; i++) {
+                totalPoints += (questions[i].points || 0);
+            }
+            
+            var percentage = totalPoints > 0 ? Math.round((score / totalPoints) * 100) : 0;
+            
+            document.getElementById('exam-container').innerHTML = 
+                '<div id="result">' +
+                '<h1>Examen Terminé!</h1>' +
+                '<h2>Votre Score: ' + percentage + '/100</h2>' +
+                '<p>Points obtenus: ' + score + '/' + totalPoints + '</p>' +
+                '<button onclick="window.location.href=\'dashboard.html\'">Retour au Dashboard</button>' +
+                '</div>';
+            
+            // Save result
+            saveResult(percentage);
+        }
+        
+        function saveResult(percentage) {
+            try {
+                var results = JSON.parse(localStorage.getItem('examResults') || '[]');
+                results.push({
+                    examId: examId,
+                    userId: currentUser ? currentUser.id : null,
+                    score: percentage,
+                    date: new Date().toISOString(),
+                    location: examLocation
+                });
+                localStorage.setItem('examResults', JSON.stringify(results));
+            } catch (e) {
+                console.error('Error saving result:', e);
+            }
+        }
+        
+        function updateTimerDisplay(seconds) {
+            var timerElement = document.getElementById('timer');
+            if (timerElement) {
+                var mins = Math.floor(seconds / 60);
+                var secs = seconds % 60;
+                timerElement.textContent = 
+                    (mins < 10 ? '0' : '') + mins + ':' + 
+                    (secs < 10 ? '0' : '') + secs;
+            }
+        }
+    </script>
+</body>
+</html>
